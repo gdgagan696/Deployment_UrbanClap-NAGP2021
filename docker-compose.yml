@@ -1,0 +1,127 @@
+version: "3"
+
+services:
+    discovery-server:
+        container_name: discovery-server
+        image: gdgagan96/eureka-server:1.0.0
+        ports:
+                - "8761:8761"
+        volumes:
+                - /tmp:/workspace/logs
+    api-gateway:
+        container_name: api-gateway
+        image: gdgagan96/api-gateway:1.0.0
+        ports:
+                - "8762:8762"
+        links:
+                - discovery-server:discovery-server
+                - zipkin:zipkin
+        environment:
+                - DISCOVERY_SERVER_URL=http://discovery-server:8761/eureka
+                - ZIPKIN_BASE_URL=http://zipkin:9411
+        depends_on:
+                - discovery-server
+                - zipkin
+                - user-management
+                - service-catalogue
+                - order-management
+                - notification-service
+                
+        volumes:
+                - /tmp:/workspace/logs
+    
+    user-management:
+        container_name: user-management
+        image: gdgagan96/user-management:1.0.0
+        ports:
+                - "8010:8010"
+        links:
+            - discovery-server:discovery-server
+            - zipkin:zipkin
+        environment:
+                - DISCOVERY_SERVER_URL=http://discovery-server:8761/eureka
+                - ZIPKIN_BASE_URL=http://zipkin:9411
+        volumes:
+                - /tmp:/workspace/logs
+        depends_on:
+                - discovery-server
+                - zipkin
+                
+    service-catalogue:
+        container_name: service-catalogue
+        image: gdgagan96/service-catalogue:1.0.0
+        ports:
+                - "8020:8020"
+        links:
+            - discovery-server:discovery-server
+            - zipkin:zipkin
+        environment:
+                - DISCOVERY_SERVER_URL=http://discovery-server:8761/eureka
+                - ZIPKIN_BASE_URL=http://zipkin:9411
+        volumes:
+                - /tmp:/workspace/logs
+        depends_on:
+                - discovery-server
+                - zipkin
+                
+    order-management:
+        container_name: order-management
+        image: gdgagan96/order-management:1.0.0
+        ports:
+                - "8030:8030"
+        links:
+            - discovery-server:discovery-server
+            - zipkin:zipkin
+            - active-mq:active-mq
+        environment:
+                - DISCOVERY_SERVER_URL=http://discovery-server:8761/eureka
+                - ZIPKIN_BASE_URL=http://zipkin:9411
+                - ACTIVE_MQ_BROKER_URL=tcp://active-mq:61616?jms.redeliveryPolicy.maximumRedeliveries=1
+                - ACTIVE_MQ_USER=admin
+                - ACTIVE_MQ_PWD=admin
+        volumes:
+                - /tmp:/workspace/logs
+        depends_on:
+                - discovery-server
+                - zipkin
+                - active-mq
+                
+    notification-service:
+        container_name: notification-service
+        image: gdgagan96/notification-service:1.0.0
+        ports:
+                - "8040:8040"
+        links:
+            - discovery-server:discovery-server
+            - zipkin:zipkin
+            - active-mq:active-mq
+            
+        environment:
+                - DISCOVERY_SERVER_URL=http://discovery-server:8761/eureka
+                - ZIPKIN_BASE_URL=http://zipkin:9411
+                - ACTIVE_MQ_BROKER_URL=tcp://active-mq:61616?jms.redeliveryPolicy.maximumRedeliveries=1
+                - ACTIVE_MQ_USER=admin
+                - ACTIVE_MQ_PWD=admin
+                - CREDENTIAL_AVAILABLE=false
+                - GMAIL_USERNAME=urbanclapnagp@gmail.com
+                - GMAIL_PWD=urbanclapnagp
+        volumes:
+                - /tmp:/workspace/logs
+        depends_on:
+                - discovery-server
+                - zipkin
+                - active-mq
+                    
+                
+    zipkin:
+        container_name: zipkin-server
+        image: openzipkin/zipkin
+        ports:
+               - "9411:9411"
+    active-mq:
+        container_name: active-mq-server
+        image: webcenter/activemq:latest
+        ports:
+               - "61616:61616" # broker 
+               - "8161:8161"   # web(admin:admin)
+               - "5672:5672"
